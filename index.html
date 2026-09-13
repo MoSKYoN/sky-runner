@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Sky Runner</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050814;color:#fff;font-family:Arial,sans-serif}
+body{display:flex;align-items:center;justify-content:center}
+#game{position:relative;width:min(100vw,960px);height:min(100vh,540px);aspect-ratio:16/9}
+canvas{width:100%;height:100%;display:block;border-radius:18px}
+#hud{position:absolute;top:16px;left:18px;right:18px;display:flex;justify-content:space-between;font-weight:900;font-size:18px;text-shadow:0 2px 8px #000;pointer-events:none}
+#screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:#05081488;border-radius:18px}
+.card{padding:28px 34px;border:1px solid #3c67b8;border-radius:22px;background:#081127ee;box-shadow:0 15px 50px #0008}
+h1{font-size:clamp(34px,7vw,64px);margin:0 0 8px;font-weight:1000;letter-spacing:-2px}
+p{opacity:.75;margin:8px 0 18px}
+button{border:0;border-radius:14px;padding:14px 28px;font-size:18px;font-weight:900;background:#168cff;color:white;box-shadow:0 8px 24px #168cff55}
+#controls{position:absolute;bottom:18px;left:18px;right:18px;display:flex;justify-content:space-between;pointer-events:none}
+.ctrl{pointer-events:auto;width:74px;height:60px;border:1px solid #62bfff88;border-radius:16px;background:#07152dcc;color:white;font-size:30px;font-weight:900}
+.ctrl:active{transform:scale(.94);background:#168cff}
+#pause{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:none;width:42px;height:42px;padding:0;border-radius:50%;font-size:18px}
+@media (min-width:700px){#controls{display:none}}
+</style>
+</head>
+<body>
+<div id="game">
+<canvas id="c" width="960" height="540"></canvas>
+<div id="hud"><span>SCORE <b id="score">0</b></span><span>BEST <b id="best">0</b></span></div>
+<button id="pause">Ⅱ</button>
+<div id="screen"><div class="card"><h1>SKY RUNNER</h1><p>DODGE • COLLECT • SURVIVE</p><button id="start">START RUN</button></div></div>
+<div id="controls"><button class="ctrl" id="left">‹</button><button class="ctrl" id="right">›</button></div>
+</div>
+<script>
+const C=document.getElementById('c'),ctx=C.getContext('2d'),W=960,H=540;
+const screen=document.getElementById('screen'),start=document.getElementById('start');
+const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),pause=document.getElementById('pause');
+let best=Number(localStorage.getItem('skyRunnerBest')||0),running=false,paused=false,last=0,score=0,spd=250,spawn=0,coinSpawn=0;
+let p,blocks=[],coins=[],stars=[];
+bestEl.textContent=best;
+for(let i=0;i<100;i++) stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.6,s:.2+Math.random()*.8});
+function startGame(){p={x:W/2-18,y:H-92,w:36,h:36,vx:0};blocks=[];coins=[];score=0;spd=250;spawn=.7;coinSpawn=.4;running=true;paused=false;screen.style.display='none';pause.style.display='block';last=performance.now();requestAnimationFrame(loop)}
+function endGame(){running=false;pause.style.display='none';let final=Math.floor(score);if(final>best){best=final;localStorage.setItem('skyRunnerBest',best)}bestEl.textContent=best;screen.innerHTML=`<div class="card"><h1>GAME OVER</h1><p>SCORE <b>${final}</b> &nbsp; • &nbsp; BEST <b>${best}</b></p><button id="again">TRY AGAIN</button></div>`;screen.style.display='flex';document.getElementById('again').onclick=startGame}
+function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
+let input=0;function setInput(v){input=v}
+['left','right'].forEach(id=>{const el=document.getElementById(id),v=id==='left'?-1:1;['pointerdown','touchstart'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();setInput(v)}));['pointerup','pointercancel','pointerleave','touchend'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();if(input===v)input=0}))});
+addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key.toLowerCase()==='a')input=-1;if(e.key==='ArrowRight'||e.key.toLowerCase()==='d')input=1;if(e.key===' ')togglePause()});
+addEventListener('keyup',e=>{if((e.key==='ArrowLeft'||e.key.toLowerCase()==='a')&&input===-1)input=0;if((e.key==='ArrowRight'||e.key.toLowerCase()==='d')&&input===1)input=0});
+function togglePause(){if(!running)return;paused=!paused;pause.textContent=paused?'▶':'Ⅱ';if(!paused){last=performance.now();requestAnimationFrame(loop)}}
+pause.onclick=togglePause;start.onclick=startGame;
+function loop(t){if(!running||paused)return;const dt=Math.min((t-last)/1000,.033);last=t;score+=dt*12;spd+=dt*4;p.vx+=(input*620-p.vx)*Math.min(1,dt*10);p.x+=p.vx*dt;p.x=Math.max(8,Math.min(W-p.w-8,p.x));spawn-=dt;coinSpawn-=dt;if(spawn<=0){let w=34+Math.random()*48;blocks.push({x:Math.random()*(W-w),y:-70,w,h:28+Math.random()*65});spawn=Math.max(.32,.92-score/260)}if(coinSpawn<=0){coins.push({x:18+Math.random()*(W-36),y:-15,w:16,h:16});coinSpawn=.45+Math.random()*.65}blocks.forEach(o=>o.y+=spd*dt);coins.forEach(o=>o.y+=spd*.82*dt);for(const o of blocks)if(hit(p,o)){endGame();return}for(let i=coins.length-1;i>=0;i--)if(Math.hypot(p.x+p.w/2-coins[i].x-8,p.y+p.h/2-coins[i].y-8)<30){score+=60;coins.splice(i,1)}blocks=blocks.filter(o=>o.y<H+80);coins=coins.filter(o=>o.y<H+40);draw();scoreEl.textContent=Math.floor(score);requestAnimationFrame(loop)}
+function draw(){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#071936');g.addColorStop(1,'#03050d');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.fillStyle='#fff';for(const s of stars){s.y+=s.s;if(s.y>H)s.y=0;ctx.globalAlpha=.35+s.s/2;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;ctx.strokeStyle='#12315c';ctx.lineWidth=2;for(let y=320;y<H;y+=45){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}for(const o of blocks){ctx.shadowBlur=18;ctx.shadowColor='#ff276b';ctx.fillStyle='#ff276b';ctx.fillRect(o.x,o.y,o.w,o.h);ctx.shadowBlur=0;ctx.fillStyle='#27091a';ctx.fillRect(o.x+6,o.y+6,o.w-12,o.h-12)}for(const o of coins){ctx.shadowBlur=20;ctx.shadowColor='#35d9ff';ctx.fillStyle='#35d9ff';ctx.beginPath();ctx.arc(o.x+8,o.y+8,8,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0}ctx.save();ctx.translate(p.x+p.w/2,p.y+p.h/2);ctx.rotate(p.vx*.0007);ctx.shadowBlur=24;ctx.shadowColor='#fff';ctx.fillStyle='#fff';ctx.fillRect(-18,-18,36,36);ctx.shadowBlur=0;ctx.fillStyle='#172a55';ctx.fillRect(-10,-7,6,7);ctx.fillRect(4,-7,6,7);ctx.restore()}
+draw();
+</script>
+</body>
+</html>
